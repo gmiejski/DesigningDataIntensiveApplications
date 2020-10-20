@@ -13,85 +13,102 @@ import (
 	"strings"
 )
 
-type Person struct {
-	Name    string
-	Surname string
-	Kids    []string
+type ID = int
+
+type hashIndex struct {
+	file             *os.File
+	filepath         string
+	index            map[ID]int64
+	nextIndexPointer int64
 }
 
-type KeyValueDB interface {
-	Save(id int, person interface{}) error
-	Find(id int) (Person, error)
-	Close() error
-}
-
-type simpleHashIndex struct {
-	file     *os.File
-	filepath string
-}
-
-func (s *simpleHashIndex) Close() error {
-	return s.file.Close()
-}
-
-func (s *simpleHashIndex) Save(id int, object interface{}) error {
+func (h *hashIndex) Save(id ID, object interface{}) error {
 	jsonObject, err := json.Marshal(object)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-	if _, err := s.file.WriteString(strconv.Itoa(id) + "," + string(jsonObject) + "\n"); err != nil {
+	newRecord := strconv.Itoa(id) + "," + string(jsonObject) + "\n"
+	if _, err := h.file.WriteString(newRecord); err != nil {
 		log.Println(err)
 		return err
 	}
-	err = s.file.Sync()
+	err = h.file.Sync()
 	if err != nil {
 		return err
 	}
+	h.index[id] = h.nextIndexPointer
+	h.nextIndexPointer += int64(len(newRecord))
 	return nil
 }
 
-func (s *simpleHashIndex) Find(id int) (Person, error) {
-	inFile, err := os.Open(s.filepath)
+func (h *hashIndex) Find(id ID) (Person, error) {
+	text, err := h.findIndexLine(id)
 	if err != nil {
-		fmt.Println(err.Error() + `: ` + s.filepath)
 		return Person{}, err
 	}
-	defer inFile.Close()
-	scanner := bufio.NewScanner(inFile)
-	var lastReadValue *Person
-	for scanner.Scan() {
-		text := scanner.Text()
+	return h.parseLine(id, text)
 
-		index := strings.Index(text, ",")
-		if index == -1 {
-			return Person{}, errors.New("cannot find")
-		}
-		foundIDString := text[:index]
-		foundID, err := strconv.Atoi(foundIDString)
-		if err != nil {
-			return Person{}, err
-		}
-		if foundID != id {
-			return Person{}, fmt.Errorf("wrong id in the line: %s", foundIDString)
-		}
+}
 
-		objectJson := text[index+1 : len(text)]
-		var person Person
-		err = json.Unmarshal([]byte(objectJson), &person)
-		if err != nil {
-			return Person{}, err
-		}
-		lastReadValue = &person
+func (h *hashIndex) findIndexLine(id ID) (string, error) {
+	pointer, ok := h.index[id]
+	if !ok {
+		return "", fmt.Errorf("not found: %d", id)
 	}
-	if lastReadValue == nil {
-		return Person{}, fmt.Errorf("not found id: %d", id)
+	indexReadFile, err := os.OpenFile(h.filepath, os.O_RDONLY|os.O_CREATE, 0644)
+	defer indexReadFile.Close()
+	if err != nil {
+		return "", err
 	}
-	return *lastReadValue, nil
+	_, err = indexReadFile.Seek(pointer, 0)
+	if err != nil {
+		return "", err
+	}
+	scanner := bufio.NewScanner(indexReadFile)
+	scanner.Scan()
+	return scanner.Text(), nil
+}
+
+func (h *hashIndex) parseLine(id ID, text string) (Person, error) {
+	index := strings.Index(text, ",")
+	if index == -1 {
+		return Person{}, errors.New("cannot find")
+	}
+	foundIDString := text[:index]
+	foundID, err := strconv.Atoi(foundIDString)
+	if err != nil {
+		return Person{}, err
+	}
+	if foundID != id {
+		return Person{}, fmt.Errorf("wrong id in the line: %s", foundIDString)
+	}
+
+	objectJson := text[index+1 : len(text)]
+	var person Person
+	err = json.Unmarshal([]byte(objectJson), &person)
+	if err != nil {
+		return Person{}, err
+	}
+	return person, nil
+}
+
+func (h *hashIndex) Close() error {
+	return h.file.Close()
+}
+
+func getDirectoryHashIndex(dir string) string {
+	if dir == "" {
+		uid, _ := uuid.NewRandom()
+		return path.Join("/tmp/ddia/hash_index/", uid.String())
+	} else {
+		return dir
+	}
 }
 
 func newHashIndex(dir string) (KeyValueDB, error) {
-	directory := getDirectory(dir)
+	// TODO open existing DB from a file
+	directory := getDirectoryHashIndex(dir)
 	err := os.MkdirAll(dir, 0777)
 	if err != nil {
 		return nil, err
@@ -104,14 +121,10 @@ func newHashIndex(dir string) (KeyValueDB, error) {
 		log.Println(err)
 		return nil, err
 	}
-	return &simpleHashIndex{file: f, filepath: fileFullPath}, nil
-}
-
-func getDirectory(dir string) string {
-	if dir == "" {
-		uid, _ := uuid.NewRandom()
-		return path.Join("/tmp/ddia/hashindex/", uid.String())
-	} else {
-		return dir
-	}
+	return &hashIndex{
+		file:             f,
+		filepath:         fileFullPath,
+		index:            make(map[ID]int64),
+		nextIndexPointer: 0,
+	}, nil
 }
