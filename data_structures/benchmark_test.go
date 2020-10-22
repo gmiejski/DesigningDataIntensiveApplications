@@ -3,6 +3,7 @@ package data_structures
 import (
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -12,7 +13,7 @@ const hashFileBenchmarks = "/tmp/ddia/benchmarks/filedb/"
 
 var person = Person{
 	Name:    "Greg",
-	Surname: "Misiaosbf",
+	Surname: "Mis",
 	Kids:    []string{"Alex", "Natasha"},
 }
 
@@ -51,7 +52,7 @@ func BenchmarkHashIndex(b *testing.B) {
 	defer cleanup(hashIndexBenchmarks)
 	require.NoError(b, err)
 
-	dbSize := 10000000
+	dbSize := 1000000
 	for i := 0; i < dbSize; i++ {
 		err := index.Save(i, person)
 		if err != nil {
@@ -60,8 +61,15 @@ func BenchmarkHashIndex(b *testing.B) {
 	}
 
 	b.StartTimer()
+	queries := generateRandomQueries(dbSize)
+	queriesPointer := 0
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		index.Find(14)
+		index.Find(queries[queriesPointer])
+		queriesPointer++
+		if queriesPointer >= dbSize {
+			queriesPointer = 0
+		}
 	}
 }
 
@@ -71,18 +79,31 @@ func BenchmarkFileDB(b *testing.B) {
 	defer cleanup(hashFileBenchmarks)
 	require.NoError(b, err)
 
-	dbSize := 10000
+	dbSize := 1000000
 	for i := 0; i < dbSize; i++ {
 		err := index.Save(i, person)
 		if err != nil {
 			fmt.Sprintln(err.Error())
 		}
 	}
-
+	queries := generateRandomQueries(dbSize)
+	queriesPointer := 0
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		index.Find(15)
+		index.Find(queries[queriesPointer])
+		queriesPointer++
+		if queriesPointer >= dbSize {
+			queriesPointer = 0
+		}
 	}
+}
+
+func generateRandomQueries(size int) []int {
+	queries := make([]int, size)
+	for i := 0; i < size; i++ {
+		queries[i] = rand.Intn(size)
+	}
+	return queries
 }
 
 func TestTimeOfRead(t *testing.T) {
@@ -92,7 +113,7 @@ func TestTimeOfRead(t *testing.T) {
 	defer cleanup(d)
 	require.NoError(t, err)
 
-	dbSize := 100000
+	dbSize := 1000
 	for i := 0; i < dbSize; i++ {
 		err := index.Save(i, person)
 		if err != nil {
@@ -104,5 +125,4 @@ func TestTimeOfRead(t *testing.T) {
 	index.Find(15)
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)
-	// then
 }

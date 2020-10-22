@@ -20,6 +20,7 @@ type hashIndex struct {
 	filepath         string
 	index            map[ID]int64
 	nextIndexPointer int64
+	readPointer      *os.File
 }
 
 func (h *hashIndex) Save(id ID, object interface{}) error {
@@ -39,6 +40,13 @@ func (h *hashIndex) Save(id ID, object interface{}) error {
 }
 
 func (h *hashIndex) Find(id ID) (Person, error) {
+	if h.readPointer == nil {
+		pointer, err := os.OpenFile(h.filepath, os.O_RDONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return Person{}, err
+		}
+		h.readPointer = pointer
+	}
 	text, err := h.findIndexLine(id)
 	if err != nil {
 		return Person{}, err
@@ -52,16 +60,11 @@ func (h *hashIndex) findIndexLine(id ID) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("not found: %d", id)
 	}
-	indexReadFile, err := os.OpenFile(h.filepath, os.O_RDONLY|os.O_CREATE, 0644)
-	defer indexReadFile.Close()
+	_, err := h.readPointer.Seek(pointer, 0)
 	if err != nil {
 		return "", err
 	}
-	_, err = indexReadFile.Seek(pointer, 0)
-	if err != nil {
-		return "", err
-	}
-	scanner := bufio.NewScanner(indexReadFile)
+	scanner := bufio.NewScanner(h.readPointer)
 	scanner.Scan()
 	return scanner.Text(), nil
 }
@@ -87,10 +90,6 @@ func (h *hashIndex) parseLine(id ID, text string) (Person, error) {
 		return Person{}, err
 	}
 	return person, nil
-}
-
-func (h *hashIndex) Close() error {
-	return h.file.Close()
 }
 
 func getDirectoryHashIndex(dir string) string {
@@ -123,4 +122,10 @@ func newHashIndex(dir string) (KeyValueDB, error) {
 		index:            make(map[ID]int64),
 		nextIndexPointer: 0,
 	}, nil
+}
+
+func (h *hashIndex) Close() error {
+	h.readPointer.Close()
+	h.file.Close()
+	return nil // TODO erroring
 }
