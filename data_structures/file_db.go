@@ -32,10 +32,7 @@ func (s *fileDB) Save(id ID, object interface{}) error {
 		log.Println(err)
 		return err
 	}
-	err = s.file.Sync()
-	if err != nil {
-		return err
-	}
+	// TODO any file sync needed?
 	return nil
 }
 

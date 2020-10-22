@@ -29,7 +29,7 @@ var paul = Person{
 const dir = "/tmp/ddia/filedb/d240d955-661b-4f6c-8e48-e85b8c14a9e4"
 
 func TestErrorWhenNotFound(t *testing.T) {
-	defer cleanup()
+	defer cleanup(dir)
 	// given
 	db, err := newFileDB(dir)
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestErrorWhenNotFound(t *testing.T) {
 }
 
 func TestReadWriteValue(t *testing.T) {
-	defer cleanup()
+	defer cleanup(dir)
 	// given
 	db, err := newFileDB(dir)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestReadWriteValue(t *testing.T) {
 }
 
 func TestReadingNewestValue(t *testing.T) {
-	defer cleanup()
+	defer cleanup(dir)
 	// given
 	db, err := newFileDB(dir)
 	require.NoError(t, err)
@@ -76,6 +76,6 @@ func TestReadingNewestValue(t *testing.T) {
 	require.Equal(t, john2, value)
 }
 
-func cleanup() {
+func cleanup(dir string) {
 	os.RemoveAll(dir)
 }

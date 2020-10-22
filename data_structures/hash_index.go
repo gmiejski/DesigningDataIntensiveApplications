@@ -33,10 +33,6 @@ func (h *hashIndex) Save(id ID, object interface{}) error {
 		log.Println(err)
 		return err
 	}
-	err = h.file.Sync()
-	if err != nil {
-		return err
-	}
 	h.index[id] = h.nextIndexPointer
 	h.nextIndexPointer += int64(len(newRecord))
 	return nil
