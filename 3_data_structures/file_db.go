@@ -13,6 +13,8 @@ import (
 	"strings"
 )
 
+const TOMBSTONE = "DELETED"
+
 type fileDB struct {
 	file     *os.File
 	filepath string
@@ -60,19 +62,35 @@ func (s *fileDB) Find(id ID) (Person, error) {
 		if foundID != id {
 			return Person{}, fmt.Errorf("wrong id in the line: %s", foundIDString)
 		}
-
 		objectJson := text[index+1 : len(text)]
-		var person Person
-		err = json.Unmarshal([]byte(objectJson), &person)
-		if err != nil {
-			return Person{}, err
+		if isDeleted(objectJson) {
+			lastReadValue = nil
+		} else {
+			var person Person
+			err = json.Unmarshal([]byte(objectJson), &person)
+			if err != nil {
+				return Person{}, err
+			}
+			lastReadValue = &person
 		}
-		lastReadValue = &person
 	}
 	if lastReadValue == nil {
-		return Person{}, fmt.Errorf("not found id: %d", id)
+		return Person{}, NotFound{id: id}
 	}
 	return *lastReadValue, nil
+}
+
+func isDeleted(objectJson string) bool {
+	return objectJson == TOMBSTONE
+}
+
+func (s *fileDB) Delete(id ID) error {
+	newRecord := strconv.Itoa(id) + "," + TOMBSTONE + "\n"
+	if _, err := s.file.WriteString(newRecord); err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
 }
 
 func newFileDB(dir string) (KeyValueDB, error) {

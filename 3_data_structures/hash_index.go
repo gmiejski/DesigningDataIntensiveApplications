@@ -49,7 +49,7 @@ func (h *hashIndex) Find(id ID) (Person, error) {
 	}
 	text, err := h.findIndexLine(id)
 	if err != nil {
-		return Person{}, err
+		return Person{}, NotFound{id: id}
 	}
 	return h.parseLine(id, text)
 
@@ -90,6 +90,20 @@ func (h *hashIndex) parseLine(id ID, text string) (Person, error) {
 		return Person{}, err
 	}
 	return person, nil
+}
+
+func (h *hashIndex) Delete(id ID) error {
+	if _, ok := h.index[id]; !ok {
+		return NotFound{id: id}
+	}
+	newRecord := strconv.Itoa(id) + ",DELETED\n"
+	if _, err := h.file.WriteString(newRecord); err != nil {
+		log.Println(err)
+		return err
+	}
+	delete(h.index, id)
+	h.nextIndexPointer += int64(len(newRecord))
+	return nil
 }
 
 func getDirectoryHashIndex(dir string) string {

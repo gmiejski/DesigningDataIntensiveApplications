@@ -1,6 +1,7 @@
 package data_structures
 
 import (
+	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 )
@@ -33,14 +34,36 @@ func TestReadWriteValue_FileDb(t *testing.T) {
 	testReadWriteValue(t, db)
 }
 
-func TestReadingNewestValue_FileDb(t *testing.T) {
+func TestNoErrorWhenDeletingNotExistingKey(t *testing.T) {
 	defer cleanup(fileDBPath)
 	// given
 	db := newTestFileDB()
 
-	// expect
-	testReadNewestValue(t, db)
+	// when
+	err := db.Delete(1)
+
+	// then
+	require.NoError(t, err)
 }
+
+func TestDeletedPersonIsNotRetrievable_FileDb(t *testing.T) {
+	defer cleanup(fileDBPath)
+	// given
+	db := newTestHashIndex()
+
+	// expect
+	testDeletedPersonIsNotRetrievable(t, db)
+}
+
+func TestSavingValueAfterDeletingKey_FileDb(t *testing.T) {
+	defer cleanup(fileDBPath)
+	// given
+	db := newTestHashIndex()
+
+	// expect
+	testSavingValueAfterDeletingKey(t, db)
+}
+
 func cleanup(dir string) {
 	os.RemoveAll(dir)
 }
