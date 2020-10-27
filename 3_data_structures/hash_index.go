@@ -2,15 +2,12 @@ package data_structures
 
 import (
 	"bufio"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"log"
 	"os"
 	"path"
 	"strconv"
-	"strings"
 )
 
 type ID = int
@@ -23,19 +20,18 @@ type hashIndex struct {
 	readPointer      *os.File
 }
 
-func (h *hashIndex) Save(id ID, object interface{}) error {
-	jsonObject, err := json.Marshal(object)
+func (h *hashIndex) Save(id ID, person interface{}) error {
+	record, err := Serde{}.serialize(id, person)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	newRecord := strconv.Itoa(id) + "," + string(jsonObject) + "\n"
-	if _, err := h.file.WriteString(newRecord); err != nil {
+	nextLine := record + "\n"
+	if _, err := h.file.WriteString(nextLine); err != nil {
 		log.Println(err)
 		return err
 	}
 	h.index[id] = h.nextIndexPointer
-	h.nextIndexPointer += int64(len(newRecord))
+	h.nextIndexPointer += int64(len(nextLine))
 	return nil
 }
 
@@ -70,26 +66,14 @@ func (h *hashIndex) findIndexLine(id ID) (string, error) {
 }
 
 func (h *hashIndex) parseLine(id ID, text string) (Person, error) {
-	index := strings.Index(text, ",")
-	if index == -1 {
-		return Person{}, errors.New("cannot find")
-	}
-	foundIDString := text[:index]
-	foundID, err := strconv.Atoi(foundIDString)
+	foundID, person, err := Serde{}.deserialize(text)
 	if err != nil {
-		return Person{}, err
+		return Person{}, nil
 	}
 	if foundID != id {
-		return Person{}, fmt.Errorf("wrong id in the line: %s", foundIDString)
+		return Person{}, fmt.Errorf("wrong id in the line: %s", text)
 	}
-
-	objectJson := text[index+1 : len(text)]
-	var person Person
-	err = json.Unmarshal([]byte(objectJson), &person)
-	if err != nil {
-		return Person{}, err
-	}
-	return person, nil
+	return *person, nil
 }
 
 func (h *hashIndex) Delete(id ID) error {

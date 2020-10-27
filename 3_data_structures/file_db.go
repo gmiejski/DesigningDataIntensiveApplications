@@ -2,15 +2,12 @@ package data_structures
 
 import (
 	"bufio"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"log"
 	"os"
 	"path"
 	"strconv"
-	"strings"
 )
 
 const TOMBSTONE = "DELETED"
@@ -25,13 +22,11 @@ func (s *fileDB) Close() error {
 }
 
 func (s *fileDB) Save(id ID, object interface{}) error {
-	jsonObject, err := json.Marshal(object)
+	jsonObject, err := Serde{}.serialize(id, object)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	if _, err := s.file.WriteString(strconv.Itoa(id) + "," + string(jsonObject) + "\n"); err != nil {
-		log.Println(err)
+	if _, err := s.file.WriteString(jsonObject + "\n"); err != nil {
 		return err
 	}
 	// TODO any file sync needed?
@@ -47,41 +42,24 @@ func (s *fileDB) Find(id ID) (Person, error) {
 	defer inFile.Close()
 	scanner := bufio.NewScanner(inFile)
 	var lastReadValue *Person
+	serde := Serde{}
 	for scanner.Scan() {
 		text := scanner.Text()
 
-		index := strings.Index(text, ",")
-		if index == -1 {
-			return Person{}, errors.New("cannot find")
-		}
-		foundIDString := text[:index]
-		foundID, err := strconv.Atoi(foundIDString)
+		_, person, err := serde.deserialize(text)
 		if err != nil {
 			return Person{}, err
 		}
-		if foundID != id {
-			return Person{}, fmt.Errorf("wrong id in the line: %s", foundIDString)
-		}
-		objectJson := text[index+1 : len(text)]
-		if isDeleted(objectJson) {
+		if person == nil {
 			lastReadValue = nil
 		} else {
-			var person Person
-			err = json.Unmarshal([]byte(objectJson), &person)
-			if err != nil {
-				return Person{}, err
-			}
-			lastReadValue = &person
+			lastReadValue = person
 		}
 	}
 	if lastReadValue == nil {
 		return Person{}, NotFound{id: id}
 	}
 	return *lastReadValue, nil
-}
-
-func isDeleted(objectJson string) bool {
-	return objectJson == TOMBSTONE
 }
 
 func (s *fileDB) Delete(id ID) error {
