@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strconv"
 )
 
 type ID = int
@@ -43,15 +42,14 @@ func (h *hashIndex) Find(id ID) (Person, error) {
 		}
 		h.readPointer = pointer
 	}
-	text, err := h.findIndexLine(id)
+	text, err := h.findLine(id)
 	if err != nil {
 		return Person{}, NotFound{id: id}
 	}
 	return h.parseLine(id, text)
-
 }
 
-func (h *hashIndex) findIndexLine(id ID) (string, error) {
+func (h *hashIndex) findLine(id ID) (string, error) {
 	pointer, ok := h.index[id]
 	if !ok {
 		return "", fmt.Errorf("not found: %d", id)
@@ -66,26 +64,31 @@ func (h *hashIndex) findIndexLine(id ID) (string, error) {
 }
 
 func (h *hashIndex) parseLine(id ID, text string) (Person, error) {
-	foundID, person, err := Serde{}.deserialize(text)
+	record, err := Serde{}.deserialize(text)
 	if err != nil {
 		return Person{}, nil
 	}
-	if foundID != id {
+	if record.ID != id {
 		return Person{}, fmt.Errorf("wrong id in the line: %s", text)
 	}
-	return *person, nil
+
+	if record.deleted {
+		return Person{}, NotFound{id: id}
+	}
+
+	return record.Person, nil
 }
 
 func (h *hashIndex) Delete(id ID) error {
 	if _, ok := h.index[id]; !ok {
 		return NotFound{id: id}
 	}
-	newRecord := strconv.Itoa(id) + ",DELETED\n"
+	newRecord := Serde{}.markDeleted(id)
 	if _, err := h.file.WriteString(newRecord); err != nil {
 		log.Println(err)
 		return err
 	}
-	delete(h.index, id)
+	h.index[id] = h.nextIndexPointer
 	h.nextIndexPointer += int64(len(newRecord))
 	return nil
 }

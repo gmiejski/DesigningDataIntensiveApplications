@@ -7,10 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
-	"strconv"
 )
-
-const TOMBSTONE = "DELETED"
 
 type fileDB struct {
 	file     *os.File
@@ -46,14 +43,15 @@ func (s *fileDB) Find(id ID) (Person, error) {
 	for scanner.Scan() {
 		text := scanner.Text()
 
-		_, person, err := serde.deserialize(text)
+		record, err := serde.deserialize(text)
 		if err != nil {
 			return Person{}, err
 		}
-		if person == nil {
+		if record.deleted {
 			lastReadValue = nil
 		} else {
-			lastReadValue = person
+			person := record.Person
+			lastReadValue = &person
 		}
 	}
 	if lastReadValue == nil {
@@ -63,7 +61,7 @@ func (s *fileDB) Find(id ID) (Person, error) {
 }
 
 func (s *fileDB) Delete(id ID) error {
-	newRecord := strconv.Itoa(id) + "," + TOMBSTONE + "\n"
+	newRecord := Serde{}.markDeleted(id)
 	if _, err := s.file.WriteString(newRecord); err != nil {
 		log.Println(err)
 		return err

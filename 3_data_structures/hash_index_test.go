@@ -1,7 +1,6 @@
 package data_structures
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -55,8 +54,6 @@ func TestDeletedPersonIsNotRetrievable_HashIndex(t *testing.T) {
 	defer cleanup(hashIndexDir)
 	// given
 	db := newTestHashIndex()
-	err := db.Save(1, john)
-	require.NoError(t, err)
 
 	// expect
 	testDeletedPersonIsNotRetrievable(t, db)

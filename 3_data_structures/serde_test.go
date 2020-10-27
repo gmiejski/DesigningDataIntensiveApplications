@@ -16,10 +16,11 @@ func TestSerializeDeserializeValue(t *testing.T) {
 	require.NoError(t, err)
 
 	// when
-	id, person, err := serde.deserialize(serialized)
+	record, err := serde.deserialize(serialized)
+
 	require.NoError(t, err)
-	require.Equal(t, 1, id)
-	require.Equal(t, john, *person)
+	require.Equal(t, 1, record.ID)
+	require.Equal(t, john, record.Person)
 }
 
 func TestErrorDeserializingWithoutID(t *testing.T) {
@@ -27,11 +28,11 @@ func TestErrorDeserializingWithoutID(t *testing.T) {
 	serde := Serde{}
 	jsonObject := toJson(john)
 	// when
-	_, p, err := serde.deserialize(jsonObject)
+	record, err := serde.deserialize(jsonObject)
 
 	// then
 	require.Error(t, err)
-	require.Nil(t, p)
+	require.EqualValues(t, Record{}, record)
 }
 
 func TestErrorWhenCannotReadID(t *testing.T) {
@@ -39,11 +40,25 @@ func TestErrorWhenCannotReadID(t *testing.T) {
 	serde := Serde{}
 	jsonObject := toJson(john)
 	// when
-	_, p, err := serde.deserialize("adosib," + jsonObject)
+	record, err := serde.deserialize("adosib," + jsonObject)
 
 	// then
 	require.Error(t, err)
-	require.Nil(t, p)
+	require.EqualValues(t, Record{}, record)
+}
+
+func TestDeletedRecord(t *testing.T) {
+	// given
+	serde := Serde{}
+	deleted := serde.markDeleted(1)
+
+	// when
+	record, err := serde.deserialize(deleted)
+
+	// then
+	require.NoError(t, err)
+	require.Equal(t, Person{}, record.Person)
+	require.True(t, record.deleted)
 }
 
 func toJson(person Person) string {

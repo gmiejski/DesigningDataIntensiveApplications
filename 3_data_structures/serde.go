@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+const tombstone = "DELETED"
+
+type Record struct {
+	Person  Person
+	ID      ID
+	deleted bool
+}
+
 type Serde struct {
 }
 
@@ -20,22 +28,36 @@ func (s Serde) serialize(id ID, person interface{}) (string, error) {
 	return strconv.Itoa(id) + "," + string(jsonObject), nil
 }
 
-func (s Serde) deserialize(line string) (ID, *Person, error) {
+func (s Serde) deserialize(line string) (Record, error) {
 	index := strings.Index(line, ",")
 	if index == -1 {
-		return 0, nil, errors.New("cannot deserialize")
+		return Record{}, errors.New("cannot deserialize")
 	}
 	foundIDString := line[:index]
 	foundID, err := strconv.Atoi(foundIDString)
 	if err != nil {
-		return 0, nil, err
+		return Record{}, err
 	}
 
-	objectJson := line[index+1 : len(line)]
-	var person Person
-	err = json.Unmarshal([]byte(objectJson), &person)
-	if err != nil {
-		return 0, nil, err
+	serializedObject := line[index+1 : len(line)]
+	if strings.Trim(serializedObject, "\n") == tombstone {
+		return Record{
+			ID:      foundID,
+			deleted: true,
+		}, nil
 	}
-	return foundID, &person, nil
+	var person Person
+	err = json.Unmarshal([]byte(serializedObject), &person)
+	if err != nil {
+		return Record{}, err
+	}
+	return Record{
+		Person:  person,
+		ID:      foundID,
+		deleted: false,
+	}, nil
+}
+
+func (s Serde) markDeleted(id int) string {
+	return fmt.Sprintf("%d,%s\n", id, tombstone)
 }
