@@ -34,6 +34,15 @@ func TestReadWriteValue_FileDb(t *testing.T) {
 	testReadWriteValue(t, db)
 }
 
+func TestReadingNewestValue_FileDb(t *testing.T) {
+	defer cleanup(fileDBPath)
+	// given
+	db := newTestFileDB()
+
+	// expect
+	testReadNewestValue(t, db)
+}
+
 func TestNoErrorWhenDeletingNotExistingKey(t *testing.T) {
 	defer cleanup(fileDBPath)
 	// given
