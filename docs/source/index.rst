@@ -6,13 +6,11 @@
 Welcome to ddia-gm's documentation!
 ===================================
 
-Updated!
+Updated -> not completed webhook integration!!
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-
-
 
 Indices and tables
 ==================
