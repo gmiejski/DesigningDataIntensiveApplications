@@ -6,6 +6,8 @@
 Welcome to ddia-gm's documentation!
 ===================================
 
+Updated!
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
