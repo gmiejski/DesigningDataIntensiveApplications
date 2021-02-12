@@ -12,6 +12,8 @@ Updated -> not completed webhook integration!!
    :maxdepth: 2
    :caption: Contents:
 
+   pages/invitation
+
 Indices and tables
 ==================
 
