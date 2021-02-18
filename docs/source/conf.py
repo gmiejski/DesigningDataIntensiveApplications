@@ -58,7 +58,7 @@ master_doc = 'index'
 extensions = [
     "sphinx_rtd_theme",
     'recommonmark',
-    "readthedocs-sphinx-search "
+    "readthedocs-sphinx-search"
 ]
 
 html_theme = "sphinx_rtd_theme"
